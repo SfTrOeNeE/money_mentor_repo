@@ -389,6 +389,25 @@ function Details({ goal, onAddContribution, onEditGoal, onRemoveGoal }: DetailsP
           />
           <button type="submit" disabled={remaining === 0}>Add</button>
         </div>
+        <div className="quick-add-row" aria-label="Quick add amounts">
+          {[1, 10, 100, 1000].map((increment) => {
+            const disabled = remaining === 0 || increment > remaining
+            return (
+              <button
+                key={increment}
+                type="button"
+                className="quick-add-button"
+                onClick={() => {
+                  if (disabled) return
+                  onAddContribution(increment)
+                }}
+                disabled={disabled}
+              >
+                +${increment}
+              </button>
+            )
+          })}
+        </div>
         <p className="form-footnote">Just a little at a time adds up.</p>
       </form>
     </section>

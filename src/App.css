@@ -977,6 +977,39 @@ h1 span {
   cursor: not-allowed;
 }
 
+.quick-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.quick-add-button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #e8e1f8;
+  border-radius: 999px;
+  background: #faf7ff;
+  color: #7557b1;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.quick-add-button:hover:not(:disabled) {
+  background: #f0e9fb;
+  border-color: #d4c3ee;
+  transform: translateY(-1px);
+}
+
+.quick-add-button:disabled {
+  color: #b1abbb;
+  background: #f7f6f9;
+  border-color: #f1eef5;
+  cursor: not-allowed;
+}
+
 .form-footnote {
   margin: 8px 0 0;
   color: #a09dab;
