@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import './App.css'
 
 export type GoalCategory = 'Travel' | 'Home' | 'Emergency' | 'Lifestyle'
@@ -42,6 +42,7 @@ const startingGoals: SavingsGoal[] = [
 function App() {
   const [goals, setGoals] = useState(startingGoals)
   const [selectedGoalId, setSelectedGoalId] = useState(startingGoals[0].id)
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
   const selectedGoal = goals.find((goal) => goal.id === selectedGoalId) ?? goals[0]
   const totalSaved = goals.reduce((total, goal) => total + goal.saved, 0)
   const totalTarget = goals.reduce((total, goal) => total + goal.target, 0)
@@ -53,6 +54,26 @@ function App() {
     const newGoal = { ...goal, id: crypto.randomUUID() }
     setGoals((currentGoals) => [...currentGoals, newGoal])
     setSelectedGoalId(newGoal.id)
+    setEditingGoalId(null)
+  }
+
+  function updateGoal(goal: SavingsGoal) {
+    setGoals((currentGoals) =>
+      currentGoals.map((currentGoal) =>
+        currentGoal.id === goal.id ? goal : currentGoal,
+      ),
+    )
+    setSelectedGoalId(goal.id)
+    setEditingGoalId(null)
+  }
+
+  function removeGoal(goalId: string) {
+    setGoals((currentGoals) => {
+      const remainingGoals = currentGoals.filter((goal) => goal.id !== goalId)
+      setSelectedGoalId(remainingGoals[0]?.id ?? '')
+      return remainingGoals
+    })
+    setEditingGoalId(null)
   }
 
   function addContribution(amount: number) {
@@ -146,8 +167,18 @@ function App() {
           />
 
           <section className="workspace-grid">
-            <Details goal={selectedGoal} onAddContribution={addContribution} />
-            <Form onAddGoal={addGoal} />
+            <Details
+              goal={selectedGoal}
+              onAddContribution={addContribution}
+              onEditGoal={(goalId) => setEditingGoalId(goalId)}
+              onRemoveGoal={removeGoal}
+            />
+            <Form
+              goalToEdit={goals.find((goal) => goal.id === editingGoalId) ?? null}
+              onAddGoal={addGoal}
+              onUpdateGoal={updateGoal}
+              onCancelEdit={() => setEditingGoalId(null)}
+            />
           </section>
 
           <footer className="page-footer">
@@ -270,9 +301,11 @@ function Dashboard({
 type DetailsProps = {
   goal: SavingsGoal | undefined
   onAddContribution: (amount: number) => void
+  onEditGoal: (goalId: string) => void
+  onRemoveGoal: (goalId: string) => void
 }
 
-function Details({ goal, onAddContribution }: DetailsProps) {
+function Details({ goal, onAddContribution, onEditGoal, onRemoveGoal }: DetailsProps) {
   const [contribution, setContribution] = useState('')
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -281,6 +314,14 @@ function Details({ goal, onAddContribution }: DetailsProps) {
     if (!Number.isFinite(amount) || amount <= 0 || amount > remaining) return
     onAddContribution(amount)
     setContribution('')
+  }
+
+  function handleRemoveGoal() {
+    if (!goal) return
+    const confirmed = window.confirm(`Are you sure you want to remove “${goal.name}”?`)
+    if (confirmed) {
+      onRemoveGoal(goal.id)
+    }
   }
 
   if (!goal) {
@@ -311,6 +352,10 @@ function Details({ goal, onAddContribution }: DetailsProps) {
       <div className="detail-amount-row">
         <div><span className="detail-label">SAVED SO FAR</span><strong>{formatCurrency(goal.saved)}</strong></div>
         <div className="detail-target"><span className="detail-label">YOUR TARGET</span><strong>{formatCurrency(goal.target)}</strong></div>
+      </div>
+      <div className="detail-actions">
+        <button type="button" className="secondary-button" onClick={() => onEditGoal(goal.id)}>Edit goal</button>
+        <button type="button" className="danger-button" onClick={handleRemoveGoal}>Remove goal</button>
       </div>
       <div className="detail-progress">
         <div className="detail-progress-label"><span>Your progress</span><strong>{progress}%</strong></div>
@@ -351,16 +396,47 @@ function Details({ goal, onAddContribution }: DetailsProps) {
 }
 
 type SavingsFormProps = {
+  goalToEdit: SavingsGoal | null
   onAddGoal: (goal: Omit<SavingsGoal, 'id'>) => void
+  onUpdateGoal: (goal: SavingsGoal) => void
+  onCancelEdit: () => void
 }
 
-function Form({ onAddGoal }: SavingsFormProps) {
+function Form({ goalToEdit, onAddGoal, onUpdateGoal, onCancelEdit }: SavingsFormProps) {
   const [name, setName] = useState('')
   const [category, setCategory] = useState<GoalCategory>('Travel')
   const [target, setTarget] = useState('')
   const [saved, setSaved] = useState('')
   const [deadline, setDeadline] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!goalToEdit) {
+      setName('')
+      setCategory('Travel')
+      setTarget('')
+      setSaved('')
+      setDeadline('')
+      setError('')
+      return
+    }
+
+    setName(goalToEdit.name)
+    setCategory(goalToEdit.category)
+    setTarget(String(goalToEdit.target))
+    setSaved(String(goalToEdit.saved))
+    setDeadline(goalToEdit.deadline)
+    setError('')
+  }, [goalToEdit])
+
+  function resetForm() {
+    setName('')
+    setCategory('Travel')
+    setTarget('')
+    setSaved('')
+    setDeadline('')
+    setError('')
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -379,6 +455,18 @@ function Form({ onAddGoal }: SavingsFormProps) {
       return
     }
 
+    if (goalToEdit) {
+      onUpdateGoal({
+        ...goalToEdit,
+        name: name.trim(),
+        category,
+        target: targetAmount,
+        saved: savedAmount,
+        deadline,
+      })
+      return
+    }
+
     onAddGoal({
       name: name.trim(),
       category,
@@ -386,18 +474,13 @@ function Form({ onAddGoal }: SavingsFormProps) {
       saved: savedAmount,
       deadline,
     })
-    setName('')
-    setCategory('Travel')
-    setTarget('')
-    setSaved('')
-    setDeadline('')
-    setError('')
+    resetForm()
   }
 
   return (
     <section className="panel form-panel" id="new-goal">
-      <PanelHeading eyebrow="START SOMEWHERE" title="Create a savings goal" />
-      <p className="form-intro">Big dream or small treat? Give it a name and a plan.</p>
+      <PanelHeading eyebrow={goalToEdit ? 'UPDATE GOAL' : 'START SOMEWHERE'} title={goalToEdit ? 'Edit your savings goal' : 'Create a savings goal'} />
+      <p className="form-intro">{goalToEdit ? 'Adjust the details and keep your plan on track.' : 'Big dream or small treat? Give it a name and a plan.'}</p>
       <form className="goal-form" onSubmit={handleSubmit}>
         <label className="field-label" htmlFor="goal-name">What are you saving for?</label>
         <input
@@ -485,9 +568,14 @@ function Form({ onAddGoal }: SavingsFormProps) {
           required
         />
 
-        <button className="submit-button" type="submit">Create my goal <span aria-hidden="true">→</span></button>
+        <div className="submit-row">
+          <button className="submit-button" type="submit">{goalToEdit ? 'Save changes' : 'Create my goal'} <span aria-hidden="true">→</span></button>
+          {goalToEdit && (
+            <button type="button" className="text-button" onClick={onCancelEdit}>Cancel</button>
+          )}
+        </div>
         {error && <p className="form-error" role="alert">{error}</p>}
-        <p className="form-footnote"><span aria-hidden="true">✦</span> There’s no wrong place to start.</p>
+        <p className="form-footnote"><span aria-hidden="true">✦</span> {goalToEdit ? 'A small update can make a big difference.' : 'There’s no wrong place to start.'}</p>
       </form>
     </section>
   )
